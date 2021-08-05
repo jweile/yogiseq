@@ -1,0 +1,16 @@
+Package: yogiseq
+Title: Lightweight sequence analysis package
+Version: 0.0.1.9000
+Authors@R: 
+    person(given = "Jochen",
+           family = "Weile",
+           role = c("aut", "cre"),
+           email = "jochenweile@gmail.com")
+Description: Lightweight sequence analysis package.
+License: GPL3
+Encoding: UTF-8
+LazyData: true
+Suggests: 
+    testthat
+Imports: yogitools (>= 0.1.1), hash, bitops
+Remotes: github::jweile/yogitools,
