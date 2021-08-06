@@ -484,7 +484,7 @@ new.kmer.search <- function(k=5) {
 	}
 
 	search <- function(queries,min.hits=3,max.d=Inf) {
-		sapply(queries, function(s) {
+		yogitools::as.df(lapply(queries, function(s) {
 
 			if (is.null(s) || is.na(s) || length(s) == 0 || nchar(s) == 0) {
 				return(NA)
@@ -512,9 +512,9 @@ new.kmer.search <- function(k=5) {
 				})
 				top.match <- idxs[which(d <= max.d & d==min(d))]
 				if (length(top.match) == 1) {
-					.kmer.index.names[[top.match]]
+					list(seq=.kmer.index.names[[top.match]],hits=top.nhits[d==min(d)],dist=min(d))
 				} else  {
-					NA
+					list(seq=NA,hits=NA,dist=NA)
 				}
 		
 			} else {
@@ -522,13 +522,17 @@ new.kmer.search <- function(k=5) {
 				top.nhits <- nhits[nhits >= min.hits & nhits==max(nhits)]
 				if (length(top.nhits) == 1) {
 					.kmer.index.names[[as.integer(names(top.nhits))]]
+					list(seq=.kmer.index.names[[as.integer(names(top.nhits))]],
+						hits=top.nhits,
+						dist=NA
+					)
 				} else {
 					#in case nothing gets over minimum or there are multiple choices
-					NA
+					list(seq=NA,hits=NA,dist=NA)
 				}
 			}
 		
-		})
+		}))
 	}
 
 	list(
@@ -537,6 +541,69 @@ new.kmer.search <- function(k=5) {
 		search=search
 	)
 }
+
+#' Create new barcode matcher
+#' 
+#' @param lib library of barcode sequences to match against
+#' @return a new barcode matcher objects with the method:
+#'    findMatches(queries)
+#' @export
+new.bc.matcher <- function(lib,errCutoff=2) {
+	library(hash)
+
+	#safety checks
+	if (!inherits(lib,"character")) {
+		stop("`lib' must be of type `character'")
+	}
+	bcLen <- nchar(lib[[1]])
+	if (!all(sapply(lib,nchar)==bcLen)) {
+		stop("All elements of `lib' must be of same length!")
+	}
+
+	#convert library to integer matrix	
+	charMatrix <- do.call(rbind,lapply(lib,function(l) as.integer(charToRaw(l))))
+	#create hash of library
+	libHash <- hash(lib,1:length(lib))
+
+	findMatches <- function(queries) {
+
+		if (!inherits(queries,"character")) {
+			stop("`queries' must be of type `character'")
+		}
+
+		#iterate over queries
+		do.call(rbind,lapply(queries, function(query) {
+			if (is.na(query) || nchar(query) != bcLen) {
+				return(list(hits=NA,diffs=NA,nhits=0))
+			}
+			#look for perfect matches in hash
+			hashHit <- libHash[[query]]
+			if (!is.null(hashHit)) {
+				return(list(hits=hashHit,diffs=0,nhits=1))
+			}
+			#if no errors are tolerated, we're done here
+			if (errCutoff < 1) {
+				return(list(hits=NA,diffs=NA,nhits=0))
+			}
+			#otherwise, run (slow) inexact search
+			#convert query to integer vector
+			qChars <- as.integer(charToRaw(query))
+			#count differences in every row
+			misMatches <- apply(charMatrix,1,function(row) sum(row != qChars))
+			#find row with smallest number of differences
+			minErr <- min(misMatches)
+			hits <- which(misMatches==minErr)
+			if (minErr > errCutoff) {
+				list(hits=NA,diffs=NA,nhits=0)
+			} else {
+				list(hits=hits[[1]],diffs=minErr,nhits=length(hits))
+			}
+		}))
+	}
+
+	list(findMatches=findMatches)
+}
+
 
 # read.sam <- function(sam.file) {
 # 	tryCatch({

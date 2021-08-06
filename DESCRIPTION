@@ -14,3 +14,4 @@ Suggests:
     testthat
 Imports: yogitools (>= 0.1.1), hash, bitops
 Remotes: github::jweile/yogitools,
+RoxygenNote: 7.0.2
