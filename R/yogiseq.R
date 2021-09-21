@@ -548,7 +548,7 @@ new.kmer.search <- function(k=5) {
 #' @return a new barcode matcher objects with the method:
 #'    findMatches(queries)
 #' @export
-new.bc.matcher <- function(lib,errCutoff=2) {
+new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 	library(hash)
 
 	#safety checks
@@ -565,23 +565,59 @@ new.bc.matcher <- function(lib,errCutoff=2) {
 	#create hash of library
 	libHash <- hash(lib,1:length(lib))
 
-	findMatches <- function(queries) {
+	findMatches <- function(queries,queries2=NA) {
 
 		if (!inherits(queries,"character")) {
 			stop("`queries' must be of type `character'")
 		}
+		if (!all(is.na(queries2))) {
+			if (!inherits(queries2,"character")) {
+				stop("`queries2' must be of type `character'")
+			}
+			if (length(queries) != length(queries2)) {
+				stop("queries1 and queries2 must be of equal length!")
+			}
+			#find disagreeing reads
+			disagree <- queries != queries2
+			disagree[is.na(disagree)] <- TRUE
+			#if there are any cases where only R2 contains a read, flip
+			#it into R1 (to use preferentially)
+			flips <- which(is.na(queries) & !is.na(queries2))
+			if (length(flips) > 0) {
+				queries[flips] <- queries2[flips]
+				is.na(quries2[flips]) <- TRUE
+			}
+			#mark those reads with no backup
+			nosecond <- is.na(queries2)
+		} else {
+			disagree <- rep(FALSE,length(queries))
+			nosecond <- rep(TRUE,length(queries))
+		}
 
 		#iterate over queries
-		do.call(rbind,lapply(queries, function(query) {
-			if (is.na(query) || nchar(query) != bcLen) {
+		do.call(rbind,lapply(1:length(queries), function(i) {
+			query <- queries[[i]]
+			if ((is.na(query)&&nosecond[[i]]) || nchar(query) != bcLen || (strictMode && disagree[[i]]) ) {
 				return(list(hits=NA,diffs=NA,nhits=0))
 			}
 			#look for perfect matches in hash
-			hashHit <- libHash[[query]]
-			if (!is.null(hashHit)) {
-				return(list(hits=hashHit,diffs=0,nhits=1))
+			if (!is.na(query)) {
+				hashHit <- libHash[[query]]
+			} else {
+				hashHit <- NULL
 			}
-			#if no errors are tolerated, we're done here
+			#if available, try read2 as well
+			if (disagree[[i]] && !nosecond[[i]]) {
+				hashHit2 <- libHash[[queries2[[i]]]]
+			} else {
+				hashHit2 <- NULL
+			}
+			#return hits, if there are any
+			hits <- union(hashHit,hashHit2)
+			if (length(hits) > 0) {
+				return(list(hits=hits[[1]],diffs=minErr,nhits=length(hits)))
+			}
+			#if no errors are tolerated, we're still done here
 			if (errCutoff < 1) {
 				return(list(hits=NA,diffs=NA,nhits=0))
 			}
@@ -593,6 +629,17 @@ new.bc.matcher <- function(lib,errCutoff=2) {
 			#find row with smallest number of differences
 			minErr <- min(misMatches)
 			hits <- which(misMatches==minErr)
+
+			#do same for mismatching R2
+			if (disagree[[i]] && !nosecond[[i]]) {
+				qChars2 <- as.integer(charToRaw(queries2[[i]]))
+				#count differences in every row
+				misMatches2 <- apply(charMatrix,1,function(row) sum(row != qChars2))
+				#find row with smallest number of differences
+				minErr <- min(c(minErr,misMatches2))
+				hits <- union(which(misMatches==minErr),which(misMatches2==minErr))
+			}
+
 			if (minErr > errCutoff) {
 				list(hits=NA,diffs=NA,nhits=0)
 			} else {
