@@ -585,7 +585,7 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 			flips <- which(is.na(queries) & !is.na(queries2))
 			if (length(flips) > 0) {
 				queries[flips] <- queries2[flips]
-				is.na(quries2[flips]) <- TRUE
+				is.na(queries2[flips]) <- TRUE
 			}
 			#mark those reads with no backup
 			nosecond <- is.na(queries2)
