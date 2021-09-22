@@ -615,7 +615,7 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 			#return hits, if there are any
 			hits <- union(hashHit,hashHit2)
 			if (length(hits) > 0) {
-				return(list(hits=hits[[1]],diffs=minErr,nhits=length(hits)))
+				return(list(hits=hits[[1]],diffs=0,nhits=length(hits)))
 			}
 			#if no errors are tolerated, we're still done here
 			if (errCutoff < 1) {
