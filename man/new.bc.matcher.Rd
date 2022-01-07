@@ -4,7 +4,7 @@
 \alias{new.bc.matcher}
 \title{Create new barcode matcher}
 \usage{
-new.bc.matcher(lib, errCutoff = 2)
+new.bc.matcher(lib, errCutoff = 2, strictMode = FALSE)
 }
 \arguments{
 \item{lib}{library of barcode sequences to match against}
