@@ -96,6 +96,11 @@ searchSuffixTree <- function(tree,query,wildcard=NULL) {
   for (i in 1:length(tree)) {
 
     label <- names(tree)[[i]]
+    #if this is a leaf, we can't match anything
+    if (is.null(label)) {
+      next
+    }
+
     llen <- nchar(label)
     if (substr(label,llen,llen)=="$") {
       llen <- llen-1
