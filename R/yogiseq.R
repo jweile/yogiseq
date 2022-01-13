@@ -565,6 +565,38 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 	#create hash of library
 	libHash <- hash(lib,1:length(lib))
 
+	distantMatches <- function(query) {
+		ncs <- c("A","C","G","T")
+		dist1Hits <- do.call(c,lapply(1:nchar(query), function(i) {
+			do.call(c,lapply(setdiff(ncs,substr(query,i,i)),function(nc) {
+				q1 <- query
+				substr(q1,i,i) <- nc
+				libHash[[q1]]
+			}))
+		}))
+		if (length(dist1Hits) > 0) {
+			return(list(hits=dist1Hits,dist=1))
+		}
+		dist2Hits <- do.call(c,lapply(1:nchar(query), function(i) {
+			do.call(c,lapply(setdiff(ncs,substr(query,i,i)),function(nc) {
+				q1 <- query
+				substr(q1,i,i) <- nc
+				do.call(c,lapply(setdiff(1:nchar(query),i), function(j) {
+					do.call(c,lapply(setdiff(ncs,substr(query,j,j)),function(nc) {
+						q2 <- q1
+						substr(q2,j,j) <- nc
+						libHash[[q2]]
+					}))
+				}))
+			}))
+		}))
+		if (length(dist2Hits) > 0) {
+			return(list(hits=unique(dist2Hits),dist=2))
+		} else {
+			return(list(hits=unique(dist2Hits),dist=NA))
+		}
+	}
+
 	findMatches <- function(queries,queries2=NA) {
 
 		if (!inherits(queries,"character")) {
@@ -595,6 +627,7 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 		}
 
 		#iterate over queries
+		# system.time({
 		do.call(rbind,lapply(1:length(queries), function(i) {
 			query <- queries[[i]]
 			if ((is.na(query)&&nosecond[[i]]) || nchar(query) != bcLen || (strictMode && disagree[[i]]) ) {
@@ -623,29 +656,37 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 			}
 			#otherwise, run (slow) inexact search
 			#convert query to integer vector
-			qChars <- as.integer(charToRaw(query))
-			#count differences in every row
-			misMatches <- apply(charMatrix,1,function(row) sum(row != qChars))
-			#find row with smallest number of differences
-			minErr <- min(misMatches)
-			hits <- which(misMatches==minErr)
+			# qChars <- as.integer(charToRaw(query))
+			# #count differences in every row
+			# misMatches <- apply(charMatrix,1,function(row) sum(row != qChars))
+			# #find row with smallest number of differences
+			# minErr <- min(misMatches)
+			# hits <- which(misMatches==minErr)
+			dmatch <- distantMatches(query)
+			hits <- dmatch$hits
+			minErr <- dmatch$dist
 
 			#do same for mismatching R2
 			if (disagree[[i]] && !nosecond[[i]]) {
-				qChars2 <- as.integer(charToRaw(queries2[[i]]))
-				#count differences in every row
-				misMatches2 <- apply(charMatrix,1,function(row) sum(row != qChars2))
+
+				dmatch <- distantMatches(queries2[[i]])
+				minErr <- min(c(minErr,dmatch$dist))
+				hits <- if (minErr < dmatch$dist) hits else if (minErr > dmatch$dist) dmatch$hits else union(hits,dmatch$hits)
+				# qChars2 <- as.integer(charToRaw(queries2[[i]]))
+				# #count differences in every row
+				# misMatches2 <- apply(charMatrix,1,function(row) sum(row != qChars2))
 				#find row with smallest number of differences
-				minErr <- min(c(minErr,misMatches2))
-				hits <- union(which(misMatches==minErr),which(misMatches2==minErr))
+				# minErr <- min(c(minErr,misMatches2))
+				# hits <- union(which(misMatches==minErr),which(misMatches2==minErr))
 			}
 
-			if (minErr > errCutoff) {
+			if (is.na(minErr) || minErr > errCutoff) {
 				list(hits=NA,diffs=NA,nhits=0)
 			} else {
 				list(hits=hits[[1]],diffs=minErr,nhits=length(hits))
 			}
 		}))
+		# })
 	}
 
 	list(findMatches=findMatches)
