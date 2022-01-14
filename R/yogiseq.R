@@ -561,11 +561,11 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 	}
 
 	#convert library to integer matrix	
-	charMatrix <- do.call(rbind,lapply(lib,function(l) as.integer(charToRaw(l))))
+	# charMatrix <- do.call(rbind,lapply(lib,function(l) as.integer(charToRaw(l))))
 	#create hash of library
 	libHash <- hash(lib,1:length(lib))
 
-	distantMatches <- function(query) {
+	distantMatches <- function(query,errCutoff=2) {
 		ncs <- c("A","C","G","T")
 		dist1Hits <- do.call(c,lapply(1:nchar(query), function(i) {
 			do.call(c,lapply(setdiff(ncs,substr(query,i,i)),function(nc) {
@@ -576,12 +576,14 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 		}))
 		if (length(dist1Hits) > 0) {
 			return(list(hits=dist1Hits,dist=1))
+		} else if (errCutoff < 2) {
+			return(list(hits=integer(0),dist=NA))
 		}
-		dist2Hits <- do.call(c,lapply(1:nchar(query), function(i) {
+		dist2Hits <- do.call(c,lapply(2:nchar(query), function(i) {
 			do.call(c,lapply(setdiff(ncs,substr(query,i,i)),function(nc) {
 				q1 <- query
 				substr(q1,i,i) <- nc
-				do.call(c,lapply(setdiff(1:nchar(query),i), function(j) {
+				do.call(c,lapply(1:(i-1), function(j) {
 					do.call(c,lapply(setdiff(ncs,substr(query,j,j)),function(nc) {
 						q2 <- q1
 						substr(q2,j,j) <- nc
@@ -662,14 +664,14 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 			# #find row with smallest number of differences
 			# minErr <- min(misMatches)
 			# hits <- which(misMatches==minErr)
-			dmatch <- distantMatches(query)
+			dmatch <- distantMatches(query,errCutoff)
 			hits <- dmatch$hits
 			minErr <- dmatch$dist
 
 			#do same for mismatching R2
 			if (disagree[[i]] && !nosecond[[i]]) {
 
-				dmatch <- distantMatches(queries2[[i]])
+				dmatch <- distantMatches(queries2[[i]],errCutoff)
 				minErr <- min(c(minErr,dmatch$dist))
 				hits <- if (minErr < dmatch$dist) hits else if (minErr > dmatch$dist) dmatch$hits else union(hits,dmatch$hits)
 				# qChars2 <- as.integer(charToRaw(queries2[[i]]))
