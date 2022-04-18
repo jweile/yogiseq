@@ -555,11 +555,7 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 	if (!inherits(lib,"character")) {
 		stop("`lib' must be of type `character'")
 	}
-	bcLen <- nchar(lib[[1]])
-	if (!all(sapply(lib,nchar)==bcLen)) {
-		stop("All elements of `lib' must be of same length!")
-	}
-
+	
 	#convert library to integer matrix	
 	# charMatrix <- do.call(rbind,lapply(lib,function(l) as.integer(charToRaw(l))))
 	#create hash of library
@@ -632,7 +628,7 @@ new.bc.matcher <- function(lib,errCutoff=2,strictMode=FALSE) {
 		# system.time({
 		do.call(rbind,lapply(1:length(queries), function(i) {
 			query <- queries[[i]]
-			if ((is.na(query)&&nosecond[[i]]) || nchar(query) != bcLen || (strictMode && disagree[[i]]) ) {
+			if ((is.na(query)&&nosecond[[i]]) || (strictMode && disagree[[i]]) ) {
 				return(list(hits=NA,diffs=NA,nhits=0))
 			}
 			#look for perfect matches in hash
