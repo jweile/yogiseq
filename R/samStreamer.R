@@ -131,7 +131,7 @@ new.sam.streamer <- function(sam.file, chunkSize=100) {
     cigarChunk <<- global.extract.groups(sam$cigar,"(\\d+)([SHNMDIP]{1})")
 
     #parse MD string
-    mdzChunk <<- lapply(sam$MD, parseMDZ)
+    mdzChunk <<- lapply(as.character(sam$MD), parseMDZ)
 
     return(nrow(sam))
   }
